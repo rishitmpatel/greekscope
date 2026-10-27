@@ -1,0 +1,1185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="greekscope: an in-browser Black-Scholes-Merton options playground. Price options, see the Greeks, build multi-leg strategies and solve implied volatility. No dependencies.">
+<title>greekscope - options pricing playground</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23101419'/%3E%3Cpath d='M5 24 C11 24 13 8 16 8 C19 8 21 24 27 24' fill='none' stroke='%233dd6c6' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f4f6f8;
+  --panel: #ffffff;
+  --panel-2: #eef1f4;
+  --line: #d9dee5;
+  --line-soft: #e8ebef;
+  --text: #121820;
+  --muted: #55606f;
+  --faint: #6b7686;
+  --accent: #0b7a75;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(11, 122, 117, 0.10);
+  --pos: #11795a;
+  --neg: #bf3434;
+  --pos-fill: rgba(17, 121, 90, 0.17);
+  --neg-fill: rgba(191, 52, 52, 0.15);
+  --s1: #0b7a75;
+  --s2: #b06d0c;
+  --s3: #5558c9;
+  --grid: rgba(18, 24, 32, 0.08);
+  --axis: #6b7686;
+  --tip-bg: rgba(255, 255, 255, 0.95);
+  --focus: #0b7a75;
+  --shadow: 0 1px 2px rgba(18, 24, 32, 0.05);
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0d12;
+    --panel: #11151c;
+    --panel-2: #171c25;
+    --line: #232a35;
+    --line-soft: #1a2029;
+    --text: #e6eaf0;
+    --muted: #9aa5b5;
+    --faint: #7d889a;
+    --accent: #3dd6c6;
+    --accent-ink: #04201d;
+    --accent-soft: rgba(61, 214, 198, 0.12);
+    --pos: #4ade9b;
+    --neg: #ff7070;
+    --pos-fill: rgba(74, 222, 155, 0.15);
+    --neg-fill: rgba(255, 112, 112, 0.15);
+    --s1: #3dd6c6;
+    --s2: #f2b550;
+    --s3: #a3a8ff;
+    --grid: rgba(230, 234, 240, 0.075);
+    --axis: #7d889a;
+    --tip-bg: rgba(17, 21, 28, 0.95);
+    --focus: #3dd6c6;
+    --shadow: none;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: 0; }
+.num, input[type="number"], .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 16px; }
+
+/* header */
+.top { border-bottom: 1px solid var(--line); background: var(--panel); }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; padding-bottom: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; min-width: 0; }
+.logo { font: 600 18px/1 var(--mono); color: var(--text); letter-spacing: -0.01em; }
+.logo i { color: var(--accent); font-style: normal; }
+.tag { color: var(--muted); font-size: 13px; }
+.top nav { display: flex; gap: 16px; font-size: 13px; }
+.top nav a { color: var(--muted); text-decoration: none; padding: 4px 0; }
+.top nav a:hover { color: var(--text); }
+
+/* layout */
+.grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); padding-top: 16px; padding-bottom: 24px; }
+.col-out { display: grid; gap: 16px; min-width: 0; align-content: start; }
+@media (min-width: 980px) {
+  .grid { grid-template-columns: 340px minmax(0, 1fr); gap: 20px; padding-top: 20px; }
+}
+@media (min-width: 980px) and (min-height: 700px) {
+  .col-in { position: sticky; top: 16px; align-self: start; }
+}
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; box-shadow: var(--shadow); min-width: 0; }
+.panel-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.panel-h h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.panel-h .sub { font-size: 12px; color: var(--faint); }
+.note { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+
+/* segmented controls */
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); padding: 2px; gap: 2px; max-width: 100%; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { padding: 5px 14px; border-radius: 4px; cursor: pointer; font: 500 13px/1.3 var(--mono); color: var(--muted); user-select: none; text-align: center; }
+.seg label:hover { color: var(--text); }
+.seg input:checked + label { background: var(--accent); color: var(--accent-ink); }
+.seg input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
+.seg.block { display: flex; }
+.seg.block label { flex: 1; }
+
+/* inputs */
+.field { margin-top: 14px; }
+.field-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.field-h label { font-size: 13px; color: var(--text); }
+.field-h .sym { font-family: var(--mono); color: var(--accent); }
+.field-h .hint { font: 12px var(--mono); color: var(--faint); white-space: nowrap; }
+.field-b { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 12px; align-items: center; }
+input[type="number"], select, button.btn {
+  font: 13px var(--mono);
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 6px 8px;
+  min-width: 0;
+  width: 100%;
+  min-height: 34px;
+}
+input[type="number"] { text-align: right; }
+input[type="number"][aria-invalid="true"] { border-color: var(--neg); }
+input[type="number"]:disabled { opacity: 0.45; }
+select { cursor: pointer; }
+input[type="range"] { width: 100%; margin: 0; height: 24px; accent-color: var(--accent); background: transparent; cursor: pointer; }
+button.btn { cursor: pointer; width: auto; font-family: var(--sans); font-weight: 500; padding: 6px 12px; }
+button.btn:hover { border-color: var(--accent); }
+button.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.btn.ghost { background: transparent; }
+
+/* result cards */
+.cards { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.card { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; background: var(--panel-2); min-width: 0; }
+.card.hero { background: var(--accent-soft); border-color: transparent; }
+.card h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.card .v { font: 500 22px/1.25 var(--mono); font-variant-numeric: tabular-nums; margin-top: 2px; overflow-wrap: anywhere; }
+.card.hero .v { color: var(--accent); font-size: 26px; }
+.card .alt { display: flex; justify-content: space-between; gap: 8px; font: 12px/1.5 var(--mono); color: var(--muted); margin-top: 2px; }
+.card .alt b { font-weight: 500; color: var(--text); }
+.card .lab { font-family: var(--sans); font-size: 11px; }
+.diag { display: grid; gap: 8px 20px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.kv { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.kv span:first-child { color: var(--muted); }
+.kv span:last-child { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+.badge { display: inline-block; font: 600 11px/1 var(--mono); padding: 3px 6px; border-radius: 3px; letter-spacing: 0.04em; }
+.badge.ok { color: var(--pos); background: var(--pos-fill); }
+.badge.bad { color: var(--neg); background: var(--neg-fill); }
+
+/* strategy */
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 12px; }
+.toolbar .grow { flex: 1 1 200px; min-width: 0; }
+.toolbar label.lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.legs-head, .leg { display: grid; grid-template-columns: 92px minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1.4fr) 34px; gap: 8px; align-items: center; }
+.legs-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding: 0 0 4px; }
+.legs-head span:nth-child(2), .legs-head span:nth-child(3), .legs-head span:nth-child(4) { text-align: right; padding-right: 8px; }
+.leg { padding: 4px 0; }
+.leg + .leg { border-top: 1px solid var(--line-soft); }
+.leg .cell { min-width: 0; }
+.prem { display: flex; gap: 6px; align-items: center; }
+.prem input { flex: 1 1 auto; }
+.prem button { flex: none; display: none; font: 600 10px var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--s2); background: transparent; border: 1px solid var(--line); border-radius: 4px; padding: 5px 6px; cursor: pointer; min-height: 34px; }
+.leg[data-manual="1"] .prem button { display: block; }
+.leg .rm { width: 34px; height: 34px; border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 5px; cursor: pointer; font: 16px/1 var(--mono); padding: 0; }
+.leg .rm:hover { color: var(--neg); border-color: var(--neg); }
+.empty { color: var(--muted); font-size: 13px; padding: 10px 0; }
+@media (max-width: 640px) {
+  .legs-head { display: none; }
+  .leg { grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line-soft); border-radius: 6px; padding: 8px; margin-top: 8px; gap: 8px; }
+  .leg + .leg { border-top: 1px solid var(--line-soft); }
+  .leg .cell::before { content: attr(data-label); display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .leg .cell.pc { grid-column: span 2; }
+  .leg .cell.rc { text-align: right; align-self: end; }
+}
+.summary { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 14px; }
+.stat { border: 1px solid var(--line); background: var(--panel-2); border-radius: 6px; padding: 8px 10px; min-width: 0; }
+.stat h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.stat .v { font: 500 16px/1.4 var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pos { color: var(--pos); }
+.neg { color: var(--neg); }
+.agg { display: grid; gap: 6px 20px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 12px; }
+
+/* charts */
+.chart-wrap { position: relative; margin-top: 12px; }
+canvas.chart { display: block; width: 100%; height: 340px; touch-action: pan-y; cursor: crosshair; border-radius: 4px; }
+canvas.chart:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 640px) { canvas.chart { height: 280px; } }
+.chart-ctl { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-top: 10px; }
+.chart-ctl .sl { display: flex; align-items: center; gap: 10px; flex: 1 1 240px; min-width: 0; font-size: 12px; color: var(--muted); }
+.chart-ctl .sl input { flex: 1; min-width: 80px; }
+.chart-ctl .sl output { font: 12px var(--mono); color: var(--text); min-width: 8ch; text-align: right; }
+
+/* IV */
+.iv-row { display: grid; gap: 10px; grid-template-columns: minmax(120px, 200px) auto auto; align-items: end; }
+.iv-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+@media (max-width: 520px) { .iv-row { grid-template-columns: 1fr 1fr; } .iv-row .f1 { grid-column: 1 / -1; } .iv-row .btn { width: 100%; } }
+.iv-out { margin-top: 14px; min-height: 64px; }
+.iv-out .big { font: 500 28px/1.2 var(--mono); color: var(--accent); }
+.iv-out .err { color: var(--neg); font-size: 13px; border-left: 3px solid var(--neg); padding: 6px 10px; background: var(--neg-fill); border-radius: 0 4px 4px 0; }
+.iv-out .meta { font: 12px var(--mono); color: var(--muted); margin-top: 4px; }
+
+/* footer */
+footer { border-top: 1px solid var(--line); background: var(--panel); }
+footer .wrap { padding-top: 24px; padding-bottom: 32px; display: grid; gap: 20px; }
+@media (min-width: 820px) { footer .wrap { grid-template-columns: 1.4fr 1fr; } }
+footer h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px; }
+footer ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+footer li { margin: 2px 0; }
+footer p { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+.formula { font: 12px/1.6 var(--mono); color: var(--text); background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 5px; padding: 8px 10px; overflow-x: auto; max-width: 100%; }
+
+/* mobile mini bar */
+.mini { display: none; }
+@media (max-width: 979px) {
+  body { padding-bottom: 52px; }
+  .mini { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; gap: 16px; align-items: center; justify-content: space-between; background: var(--panel); border-top: 1px solid var(--line); padding: 8px 16px; font: 13px var(--mono); font-variant-numeric: tabular-nums; }
+  .mini b { color: var(--accent); font-weight: 600; }
+  .mini span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini a { color: var(--accent); text-decoration: none; flex: none; }
+}
+@media (prefers-reduced-motion: no-preference) { button.btn, .seg label { transition: background-color 0.12s, border-color 0.12s, color 0.12s; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1 class="logo">greek<i>scope</i></h1>
+      <span class="tag">Black-Scholes-Merton pricing, Greeks, strategies and implied vol</span>
+    </div>
+    <nav aria-label="Sections">
+      <a href="#results">Results</a>
+      <a href="#strategy">Strategy</a>
+      <a href="#greeks">Greeks</a>
+      <a href="#iv">Implied vol</a>
+      <a href="https://github.com/rishitmpatel/greekscope" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap grid">
+  <aside class="col-in">
+    <section class="panel" aria-labelledby="h-inputs">
+      <div class="panel-h"><h2 id="h-inputs">Inputs</h2><span class="sub">continuous compounding</span></div>
+      <div class="seg block" role="radiogroup" aria-label="Option type">
+        <input type="radio" name="kind" id="kind-call" value="call" checked><label for="kind-call">Call</label>
+        <input type="radio" name="kind" id="kind-put" value="put"><label for="kind-put">Put</label>
+      </div>
+      <div id="fields"></div>
+    </section>
+  </aside>
+
+  <div class="col-out">
+    <section class="panel" id="results" aria-labelledby="h-results">
+      <div class="panel-h"><h2 id="h-results">Price and Greeks</h2><span class="sub" id="res-sub"></span></div>
+      <div class="cards" id="cards"></div>
+      <div class="diag" id="diag"></div>
+    </section>
+
+    <section class="panel" id="strategy" aria-labelledby="h-strat">
+      <div class="panel-h"><h2 id="h-strat">Strategy builder</h2><span class="sub">premiums are Black-Scholes-Merton model prices; quantities are in underlying units</span></div>
+      <div class="toolbar">
+        <div class="grow">
+          <label class="lbl" for="preset">Preset (centred on strike K)</label>
+          <select id="preset">
+            <option value="single">Single option</option>
+            <option value="covered_call">Covered call</option>
+            <option value="protective_put">Protective put</option>
+            <option value="bull_call">Bull call spread</option>
+            <option value="bear_put">Bear put spread</option>
+            <option value="straddle">Straddle</option>
+            <option value="strangle">Strangle</option>
+            <option value="iron_condor">Iron condor</option>
+            <option value="butterfly">Butterfly</option>
+            <option value="custom" hidden>Custom</option>
+          </select>
+        </div>
+        <button type="button" class="btn ghost" id="reset-legs">Reset legs</button>
+        <button type="button" class="btn" id="add-leg">Add leg</button>
+      </div>
+      <div class="legs-head" aria-hidden="true"><span>Type</span><span>Strike / entry</span><span>Qty (+/-)</span><span>Premium</span><span></span></div>
+      <div id="legs" role="list" aria-label="Strategy legs"></div>
+
+      <div class="summary" id="summary" aria-live="polite"></div>
+      <div class="agg" id="agg"></div>
+
+      <div class="chart-wrap">
+        <canvas class="chart" id="cv-payoff" tabindex="0" role="img" aria-label="Payoff and P&amp;L chart"></canvas>
+      </div>
+      <div class="chart-ctl">
+        <div class="sl">
+          <label for="elapsed">Mark-to-model after</label>
+          <input type="range" id="elapsed" min="0" max="365" step="1" value="0">
+          <output for="elapsed" id="elapsed-out">0 days</output>
+        </div>
+      </div>
+      <p class="note">Solid line: P&amp;L at expiry. Accent line: mark-to-model P&amp;L with the elapsed time above (0 days = today), all other inputs held fixed. Hover, touch, or use the arrow keys on the chart to read values.</p>
+    </section>
+
+    <section class="panel" id="greeks" aria-labelledby="h-greeks">
+      <div class="panel-h"><h2 id="h-greeks">Greeks vs spot</h2><span class="sub" id="greek-sub"></span></div>
+      <div class="seg" role="radiogroup" aria-label="Greek to plot">
+        <input type="radio" name="greek" id="g-delta" value="delta" checked><label for="g-delta">Delta</label>
+        <input type="radio" name="greek" id="g-gamma" value="gamma"><label for="g-gamma">Gamma</label>
+        <input type="radio" name="greek" id="g-vega" value="vega"><label for="g-vega">Vega</label>
+        <input type="radio" name="greek" id="g-theta" value="theta"><label for="g-theta">Theta</label>
+      </div>
+      <div class="chart-wrap">
+        <canvas class="chart" id="cv-greek" tabindex="0" role="img" aria-label="Greek versus spot chart"></canvas>
+      </div>
+      <p class="note" id="greek-note"></p>
+    </section>
+
+    <section class="panel" id="iv" aria-labelledby="h-iv">
+      <div class="panel-h"><h2 id="h-iv">Implied volatility solver</h2><span class="sub">uses S, K, T, r, q and the Call/Put toggle above</span></div>
+      <div class="iv-row">
+        <div class="f1">
+          <label for="iv-price">Market option price</label>
+          <input type="number" id="iv-price" step="any" inputmode="decimal" placeholder="e.g. 10.45">
+        </div>
+        <button type="button" class="btn" id="iv-fill">Fill from model</button>
+        <button type="button" class="btn primary" id="iv-apply">Apply to sigma</button>
+      </div>
+      <div class="iv-out" id="iv-out" aria-live="polite"></div>
+      <p class="note">Newton-Raphson on vega, falling back to bisection on [0.0001%, 1000%] when a step leaves the bracket or vega is too small.</p>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <h2>About</h2>
+      <p>greekscope prices European options with the Black-Scholes-Merton (BSM) model. This page is a dependency-free port of the maths in the greekscope Python library. It is an educational tool, not trading advice.</p>
+      <p>Model assumptions</p>
+      <ul>
+        <li>The underlying follows geometric Brownian motion with constant volatility.</li>
+        <li>The risk-free rate and continuous dividend yield are constant.</li>
+        <li>Frictionless markets: continuous trading, no transaction costs, no arbitrage.</li>
+        <li>Exercise only at expiry (European style); no early exercise or discrete dividends.</li>
+      </ul>
+      <p style="margin-top:8px">Real markets show volatility smiles, jumps and stochastic volatility, so implied vol varies by strike and expiry and model Greeks are approximations.</p>
+    </div>
+    <div>
+      <h2>Source</h2>
+      <p><a href="https://github.com/rishitmpatel/greekscope" rel="noopener">github.com/rishitmpatel/greekscope</a></p>
+      <div class="formula">d1 = [ln(S/K) + (r - q + sigma^2/2) T] / (sigma sqrt(T))<br>d2 = d1 - sigma sqrt(T)<br>C = S e^(-qT) N(d1) - K e^(-rT) N(d2)<br>P = K e^(-rT) N(-d2) - S e^(-qT) N(-d1)</div>
+      <p style="margin-top:8px">Normal CDF: Hart (1968) rational approximation with a continued-fraction tail, about 1e-16 absolute accuracy.</p>
+    </div>
+  </div>
+</footer>
+
+<div class="mini" id="mini" aria-hidden="true"></div>
+
+<script>
+(function () {
+'use strict';
+
+/* ===================================================================
+   MATH: pure functions, no DOM. Extracted and tested under node.
+   =================================================================== */
+/*MATH-BEGIN*/
+const SQRT_2PI = 2.5066282746310002;
+
+function npdf(x) { return Math.exp(-0.5 * x * x) / SQRT_2PI; }
+
+// Standard normal CDF: Hart (1968) rational approximation (West 2005 form) for |x| < 2.8,
+// continued-fraction tail beyond. Absolute error about 1e-16, relative error below 2e-14 for |x| <= 8 (checked against erfc).
+function ncdf(x) {
+  if (x !== x) return NaN;
+  const a = Math.abs(x);
+  if (a > 37) return x > 0 ? 1 : 0;
+  const e = Math.exp(-a * a / 2);
+  let c;
+  if (a < 2.8) {
+    let b = 3.52624965998911e-2 * a + 0.700383064443688;
+    b = b * a + 6.37396220353165;
+    b = b * a + 33.912866078383;
+    b = b * a + 112.079291497871;
+    b = b * a + 221.213596169931;
+    b = b * a + 220.206867912376;
+    c = e * b;
+    b = 8.83883476483184e-2 * a + 1.75566716318264;
+    b = b * a + 16.064177579207;
+    b = b * a + 86.7807322029461;
+    b = b * a + 296.564248779674;
+    b = b * a + 637.333633378831;
+    b = b * a + 793.826512519948;
+    b = b * a + 440.413735824752;
+    c = c / b;
+  } else {
+    // Tail (a >= 2.8): Laplace continued fraction for the Mills ratio, keeps relative accuracy near 1e-15
+    let b = a;
+    for (let k = 80; k >= 1; k--) b = a + k / b;
+    c = e / b / SQRT_2PI;
+  }
+  return x > 0 ? 1 - c : c;
+}
+
+// Black-Scholes-Merton price and Greeks (all per 1.00 / per year, raw units).
+// Handles T = 0 and sigma = 0 as deterministic limits (never NaN for valid inputs).
+function bsm(S, K, T, r, sigma, q, kind) {
+  const isCall = kind === 'call';
+  const sg = isCall ? 1 : -1;
+  const o = { price: 0, delta: 0, gamma: 0, vega: 0, theta: 0, rho: 0, vanna: 0, volga: 0, d1: 0, d2: 0 };
+  if (!(T > 0)) {
+    o.price = Math.max(sg * (S - K), 0);
+    const callDelta = S > K ? 1 : (S < K ? 0 : 0.5);
+    o.delta = isCall ? callDelta : callDelta - 1;
+    o.d1 = o.d2 = S > K ? Infinity : (S < K ? -Infinity : 0);
+    return o;
+  }
+  const eq = Math.exp(-q * T), er = Math.exp(-r * T);
+  const Sf = S * eq, Kd = K * er;
+  if (!(sigma > 0)) {
+    const itm = isCall ? Sf > Kd : Sf < Kd;
+    o.price = Math.max(sg * (Sf - Kd), 0);
+    if (itm) {
+      o.delta = isCall ? eq : -eq;
+      o.theta = isCall ? q * Sf - r * Kd : r * Kd - q * Sf;
+      o.rho = isCall ? K * T * er : -K * T * er;
+    }
+    o.d1 = o.d2 = Sf > Kd ? Infinity : (Sf < Kd ? -Infinity : 0);
+    return o;
+  }
+  const sT = Math.sqrt(T);
+  const d1 = (Math.log(S / K) + (r - q + 0.5 * sigma * sigma) * T) / (sigma * sT);
+  const d2 = d1 - sigma * sT;
+  const pd = npdf(d1);
+  o.d1 = d1; o.d2 = d2;
+  if (isCall) {
+    o.price = Sf * ncdf(d1) - Kd * ncdf(d2);
+    o.delta = eq * ncdf(d1);
+    o.theta = -Sf * pd * sigma / (2 * sT) - r * Kd * ncdf(d2) + q * Sf * ncdf(d1);
+    o.rho = K * T * er * ncdf(d2);
+  } else {
+    o.price = Kd * ncdf(-d2) - Sf * ncdf(-d1);
+    o.delta = -eq * ncdf(-d1);
+    o.theta = -Sf * pd * sigma / (2 * sT) + r * Kd * ncdf(-d2) - q * Sf * ncdf(-d1);
+    o.rho = -K * T * er * ncdf(-d2);
+  }
+  o.gamma = eq * pd / (S * sigma * sT);
+  o.vega = Sf * pd * sT;
+  o.vanna = -eq * pd * d2 / sigma;
+  o.volga = o.vega * d1 * d2 / sigma;
+  return o;
+}
+
+// No-arbitrage price bounds for a European option.
+function ivBounds(S, K, T, r, q, kind) {
+  const Sf = S * Math.exp(-q * T), Kd = K * Math.exp(-r * T);
+  return kind === 'call' ? { lo: Math.max(Sf - Kd, 0), hi: Sf } : { lo: Math.max(Kd - Sf, 0), hi: Kd };
+}
+
+// Implied volatility: safeguarded Newton (vega) with bisection fallback.
+function impliedVol(target, S, K, T, r, q, kind) {
+  if (!isFinite(target)) return { ok: false, error: 'Enter a market price.' };
+  if (!(S > 0) || !(K > 0)) return { ok: false, error: 'S and K must be positive.' };
+  if (!(T > 0)) return { ok: false, error: 'Time to expiry must be greater than 0 to imply a volatility.' };
+  const b = ivBounds(S, K, T, r, q, kind);
+  const eps = 1e-12 * Math.max(1, S, K);
+  if (target <= b.lo + eps) {
+    return { ok: false, bounds: b, error: 'Price ' + target + ' is at or below the no-arbitrage lower bound ' + b.lo.toFixed(4) + ' (no volatility can produce it).' };
+  }
+  if (target >= b.hi - eps) {
+    return { ok: false, bounds: b, error: 'Price ' + target + ' is at or above the no-arbitrage upper bound ' + b.hi.toFixed(4) + ' (no finite volatility can produce it).' };
+  }
+  let lo = 1e-6, hi = 10;
+  if (bsm(S, K, T, r, hi, q, kind).price < target) return { ok: false, bounds: b, error: 'Implied volatility exceeds 1000%.' };
+  if (bsm(S, K, T, r, lo, q, kind).price > target) return { ok: false, bounds: b, error: 'Implied volatility is below 0.0001%.' };
+  // Seed: Manaster-Koehler (inflection point of price in sigma) away from the money, Brenner-Subrahmanyam near it.
+  const lm = Math.abs(Math.log(S * Math.exp(-q * T) / (K * Math.exp(-r * T))));
+  let s = lm > 0.05 ? Math.sqrt(2 * lm / T) : Math.sqrt(2 * Math.PI / T) * target / S;
+  s = Math.min(5, Math.max(0.05, s));
+  const tol = 1e-12 * Math.max(1, target);
+  let usedBisect = false, it = 0;
+  for (; it < 200; it++) {
+    const v = bsm(S, K, T, r, s, q, kind);
+    const f = v.price - target;
+    if (Math.abs(f) < tol) break;
+    if (f > 0) hi = s; else lo = s;
+    if (hi - lo < 1e-15) break;
+    let sn = v.vega > 1e-12 ? s - f / v.vega : NaN;
+    if (!(sn > lo && sn < hi)) { sn = 0.5 * (lo + hi); usedBisect = true; }
+    s = sn;
+  }
+  return { ok: true, iv: s, iterations: it, method: usedBisect ? 'Newton + bisection fallback' : 'Newton', bounds: b };
+}
+
+// Round a width to a "nice" strike step (about 5% of K).
+function niceStep(K) {
+  const c = [0.25, 0.5, 1, 2.5, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];
+  const w = Math.max(K * 0.05, 1e-9);
+  let best = c[0], bd = Infinity;
+  for (const x of c) { const d = Math.abs(Math.log(x / w)); if (d < bd) { bd = d; best = x; } }
+  return best;
+}
+
+// Preset leg templates. Strikes are centred on K; stock legs enter at S.
+function presetLegs(name, S, K, kind) {
+  const w = niceStep(K);
+  const st = Math.round(S * 100) / 100;
+  const L = (type, strike, qty) => ({ type: type, strike: strike, qty: qty, prem: null });
+  switch (name) {
+    case 'covered_call': return [L('stock', st, 1), L('call', K + w, -1)];
+    case 'protective_put': return [L('stock', st, 1), L('put', K - w, 1)];
+    case 'bull_call': return [L('call', K - w, 1), L('call', K + w, -1)];
+    case 'bear_put': return [L('put', K + w, 1), L('put', K - w, -1)];
+    case 'straddle': return [L('call', K, 1), L('put', K, 1)];
+    case 'strangle': return [L('put', K - w, 1), L('call', K + w, 1)];
+    case 'iron_condor': return [L('put', K - 2 * w, 1), L('put', K - w, -1), L('call', K + w, -1), L('call', K + 2 * w, 1)];
+    case 'butterfly': return [L('call', K - w, 1), L('call', K, -2), L('call', K + w, 1)];
+    default: return [L(kind === 'put' ? 'put' : 'call', K, 1)];
+  }
+}
+
+// Strategy maths. `legs` are resolved: {type, strike, qty, prem} with numeric prem (0 for stock).
+function payoffAt(legs, x) {
+  let t = 0;
+  for (const l of legs) {
+    if (l.type === 'call') t += l.qty * (Math.max(x - l.strike, 0) - l.prem);
+    else if (l.type === 'put') t += l.qty * (Math.max(l.strike - x, 0) - l.prem);
+    else t += l.qty * (x - l.strike);
+  }
+  return t;
+}
+function valueAt(legs, x, Trem, r, sigma, q) {
+  let t = 0;
+  for (const l of legs) {
+    if (l.type === 'stock') t += l.qty * (x - l.strike);
+    else t += l.qty * (bsm(x, l.strike, Trem, r, sigma, q, l.type).price - l.prem);
+  }
+  return t;
+}
+function aggGreeks(legs, S, T, r, sigma, q) {
+  const g = { delta: 0, gamma: 0, vega: 0, theta: 0, rho: 0, vanna: 0, volga: 0 };
+  for (const l of legs) {
+    if (l.type === 'stock') { g.delta += l.qty; continue; }
+    const b = bsm(S, l.strike, T, r, sigma, q, l.type);
+    for (const k in g) g[k] += l.qty * b[k];
+  }
+  return g;
+}
+// Exact analysis of the piecewise-linear expiry payoff.
+function analyze(legs) {
+  const res = { breakevens: [], maxProfit: 0, maxLoss: 0, netPremium: 0, slopeInf: 0 };
+  if (!legs.length) return res;
+  let slope = 0;
+  for (const l of legs) {
+    if (l.type === 'stock') slope += l.qty;
+    else if (l.type === 'call') slope += l.qty;
+    if (l.type !== 'stock') res.netPremium += l.qty * l.prem;
+  }
+  res.slopeInf = slope;
+  const kinks = Array.from(new Set(legs.filter(l => l.type !== 'stock').map(l => l.strike))).sort((a, b) => a - b);
+  const pts = [0].concat(kinks.filter(k => k > 0));
+  const vals = pts.map(x => payoffAt(legs, x));
+  const scale = Math.max(1, ...vals.map(Math.abs));
+  const eps = 1e-10 * scale;
+  let mx = Math.max.apply(null, vals), mn = Math.min.apply(null, vals);
+  if (slope > 1e-12) mx = Infinity;
+  if (slope < -1e-12) mn = -Infinity;
+  res.maxProfit = mx; res.maxLoss = mn;
+  const roots = [];
+  const push = x => { if (!roots.length || Math.abs(roots[roots.length - 1] - x) > 1e-7 * Math.max(1, x)) roots.push(x); };
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], fa = vals[i];
+    if (i > 0 && Math.abs(fa) < eps) { push(a); }
+    if (i + 1 < pts.length) {
+      const b = pts[i + 1], fb = vals[i + 1];
+      if (Math.abs(fa) >= eps && Math.abs(fb) >= eps && fa * fb < 0) push(a - fa * (b - a) / (fb - fa));
+    } else if (Math.abs(slope) > 1e-12) {
+      const x = a - fa / slope;
+      if (x > a * (1 + 1e-12) && Math.abs(fa) >= eps) push(x);
+    }
+  }
+  if (pts.length === 1 && Math.abs(slope) > 1e-12) { /* only linear payoff: handled above */ }
+  res.breakevens = roots.filter(x => x > 0);
+  return res;
+}
+const GS = { ncdf, npdf, bsm, ivBounds, impliedVol, niceStep, presetLegs, payoffAt, valueAt, aggGreeks, analyze };
+/*MATH-END*/
+
+/* ===================================================================
+   UI
+   =================================================================== */
+const $ = id => document.getElementById(id);
+const state = { S: 100, K: 100, T: 1, r: 0.05, sigma: 0.2, q: 0, kind: 'call', legs: [], preset: 'single', elapsed: 0, greek: 'delta' };
+let uid = 1;
+
+const FIELDS = [
+  { k: 'S', sym: 'S', label: 'Spot price', min: 1, max: 300, step: 0.5, scale: 1, dp: 2, nstep: 0.5, valid: v => v > 0 },
+  { k: 'K', sym: 'K', label: 'Strike price', min: 1, max: 300, step: 0.5, scale: 1, dp: 2, nstep: 0.5, valid: v => v > 0 },
+  { k: 'T', sym: 'T', label: 'Time to expiry (years)', min: 0, max: 5, step: 0.005, scale: 1, dp: 4, nstep: 0.01, valid: v => v >= 0 },
+  { k: 'r', sym: 'r', label: 'Risk-free rate (%)', min: -5, max: 25, step: 0.05, scale: 100, dp: 2, nstep: 0.25, valid: v => isFinite(v) },
+  { k: 'sigma', sym: 'σ', label: 'Volatility (%)', min: 0, max: 200, step: 0.1, scale: 100, dp: 2, nstep: 0.5, valid: v => v >= 0 },
+  { k: 'q', sym: 'q', label: 'Dividend yield (%)', min: 0, max: 15, step: 0.05, scale: 100, dp: 2, nstep: 0.25, valid: v => isFinite(v) }
+];
+
+/* ---------- formatting ---------- */
+function fmt(x, dp) {
+  if (x === Infinity) return '∞';
+  if (x === -Infinity) return '-∞';
+  if (!isFinite(x)) return '—';
+  let s = x.toFixed(dp);
+  if (/^-0(\.0*)?$/.test(s)) s = s.slice(1);
+  return s;
+}
+function cls(x) { return x > 1e-12 ? 'pos' : (x < -1e-12 ? 'neg' : ''); }
+
+/* ---------- inputs ---------- */
+function buildFields() {
+  const host = $('fields');
+  FIELDS.forEach(fd => {
+    const d = document.createElement('div');
+    d.className = 'field';
+    d.innerHTML =
+      '<div class="field-h"><label for="n-' + fd.k + '"><span class="sym">' + fd.sym + '</span> ' + fd.label + '</label><span class="hint" id="h-' + fd.k + '"></span></div>' +
+      '<div class="field-b"><input type="range" id="s-' + fd.k + '" min="' + fd.min + '" max="' + fd.max + '" step="' + fd.step + '" aria-label="' + fd.label + ' slider">' +
+      '<input type="number" id="n-' + fd.k + '" step="' + fd.nstep + '" inputmode="decimal"></div>';
+    host.appendChild(d);
+    const sl = d.querySelector('input[type=range]'), nu = d.querySelector('input[type=number]');
+    sl.addEventListener('input', () => {
+      state[fd.k] = parseFloat(sl.value) / fd.scale;
+      nu.value = showVal(fd);
+      nu.removeAttribute('aria-invalid');
+      onInputsChanged();
+    });
+    nu.addEventListener('input', () => {
+      const x = parseFloat(nu.value);
+      const v = x / fd.scale;
+      if (!isFinite(x) || !fd.valid(v)) { nu.setAttribute('aria-invalid', 'true'); return; }
+      nu.removeAttribute('aria-invalid');
+      state[fd.k] = v;
+      sl.value = x;
+      onInputsChanged();
+    });
+    nu.addEventListener('blur', () => { nu.removeAttribute('aria-invalid'); nu.value = showVal(fd); });
+  });
+  syncFields();
+}
+function showVal(fd) { return String(parseFloat((state[fd.k] * fd.scale).toFixed(fd.dp))); }
+function syncFields() {
+  FIELDS.forEach(fd => {
+    $('s-' + fd.k).value = state[fd.k] * fd.scale;
+    $('n-' + fd.k).value = showVal(fd);
+  });
+  updateHints();
+}
+function updateHints() {
+  $('h-T').textContent = (state.T * 365).toFixed(1) + ' days';
+  $('h-K').textContent = 'S/K ' + (state.S / state.K).toFixed(3);
+}
+
+/* ---------- strategy legs ---------- */
+function setPreset(name) {
+  state.preset = name;
+  state.legs = GS.presetLegs(name, state.S, state.K, state.kind).map(l => Object.assign({ id: uid++ }, l));
+  $('preset').value = name;
+  renderLegs();
+}
+function markCustom() {
+  if (state.preset !== 'custom') { state.preset = 'custom'; $('preset').value = 'custom'; }
+}
+function modelPrem(l) {
+  return GS.bsm(state.S, l.strike, state.T, state.r, state.sigma, state.q, l.type).price;
+}
+function legValid(l) { return isFinite(l.strike) && l.strike > 0 && isFinite(l.qty) && l.qty !== 0; }
+function resolvedLegs() {
+  return state.legs.filter(legValid).map(l => ({
+    type: l.type, strike: l.strike, qty: l.qty,
+    prem: l.type === 'stock' ? 0 : (l.prem != null && isFinite(l.prem) ? l.prem : modelPrem(l))
+  }));
+}
+function renderLegs() {
+  const host = $('legs');
+  if (!state.legs.length) { host.innerHTML = '<div class="empty">No legs. Choose a preset or add a leg.</div>'; renderStrategy(); scheduleCharts(); return; }
+  host.innerHTML = '';
+  state.legs.forEach((l, i) => {
+    const n = i + 1;
+    const row = document.createElement('div');
+    row.className = 'leg';
+    row.setAttribute('role', 'listitem');
+    row.dataset.id = l.id;
+    row.innerHTML =
+      '<div class="cell" data-label="Type"><select aria-label="Leg ' + n + ' type"><option value="call">Call</option><option value="put">Put</option><option value="stock">Stock</option></select></div>' +
+      '<div class="cell" data-label="' + (l.type === 'stock' ? 'Entry price' : 'Strike') + '"><input type="number" class="f-strike" step="any" inputmode="decimal" aria-label="Leg ' + n + (l.type === 'stock' ? ' entry price' : ' strike') + '"></div>' +
+      '<div class="cell" data-label="Qty (+/-)"><input type="number" class="f-qty" step="any" inputmode="decimal" aria-label="Leg ' + n + ' quantity, negative for short"></div>' +
+      '<div class="cell pc" data-label="Premium"><div class="prem"><input type="number" class="f-prem" step="any" inputmode="decimal" aria-label="Leg ' + n + ' premium"><button type="button" class="reset" title="Reset to model price" aria-label="Reset leg ' + n + ' premium to model price">model</button></div></div>' +
+      '<div class="cell rc" data-label="Remove"><button type="button" class="rm" aria-label="Remove leg ' + n + '">×</button></div>';
+    host.appendChild(row);
+    const sel = row.querySelector('select'), st = row.querySelector('.f-strike'), qt = row.querySelector('.f-qty'), pr = row.querySelector('.f-prem');
+    sel.value = l.type;
+    st.value = l.strike; qt.value = l.qty;
+    sel.addEventListener('change', () => {
+      const was = l.type; l.type = sel.value; markCustom();
+      if (l.type === 'stock') { l.strike = Math.round(state.S * 100) / 100; l.prem = null; }
+      else if (was === 'stock') { l.strike = state.K; }
+      renderLegs();
+      const again = $('legs').querySelector('.leg[data-id="' + l.id + '"] select'); if (again) again.focus();
+    });
+    st.addEventListener('input', () => { const v = parseFloat(st.value); l.strike = isFinite(v) ? v : NaN; markCustom(); renderStrategy(); scheduleCharts(); });
+    qt.addEventListener('input', () => { const v = parseFloat(qt.value); l.qty = isFinite(v) ? v : NaN; markCustom(); renderStrategy(); scheduleCharts(); });
+    pr.addEventListener('input', () => {
+      const raw = pr.value.trim(); const v = parseFloat(raw);
+      l.prem = raw === '' || !isFinite(v) ? null : v; markCustom();
+      row.dataset.manual = l.prem != null ? '1' : '0';
+      renderStrategy(true); scheduleCharts();
+    });
+    pr.addEventListener('blur', () => renderStrategy());
+    row.querySelector('.reset').addEventListener('click', () => { l.prem = null; renderStrategy(); scheduleCharts(); });
+    row.querySelector('.rm').addEventListener('click', () => {
+      state.legs = state.legs.filter(x => x !== l); markCustom(); renderLegs();
+      const nx = $('legs').querySelector('.rm'); if (nx) nx.focus(); else $('add-leg').focus();
+    });
+  });
+  renderStrategy();
+  scheduleCharts();
+}
+function renderStrategy(keepFocusedPrem) {
+  // update premium cells in place
+  const rows = $('legs').querySelectorAll('.leg');
+  rows.forEach(row => {
+    const l = state.legs.find(x => String(x.id) === row.dataset.id);
+    if (!l) return;
+    const pr = row.querySelector('.f-prem');
+    const manual = l.type !== 'stock' && l.prem != null && isFinite(l.prem);
+    row.dataset.manual = manual ? '1' : '0';
+    if (l.type === 'stock') { pr.disabled = true; pr.value = ''; pr.placeholder = 'n/a'; return; }
+    pr.disabled = false;
+    if (document.activeElement === pr) return;
+    pr.value = manual ? String(l.prem) : (isFinite(l.strike) && l.strike > 0 ? modelPrem(l).toFixed(4) : '');
+  });
+
+  const legs = resolvedLegs();
+  const a = GS.analyze(legs);
+  const g = GS.aggGreeks(legs, state.S, state.T, state.r, state.sigma, state.q);
+  const net = a.netPremium;
+  const be = a.breakevens.length ? a.breakevens.map(x => fmt(x, 2)).join(', ') : 'none';
+  const mp = a.maxProfit, ml = a.maxLoss;
+  const unb = v => !isFinite(v) ? 'Unbounded' : fmt(v, 2);
+  $('summary').innerHTML = legs.length ?
+    stat('Net premium', (net >= 0 ? 'Debit ' : 'Credit ') + fmt(Math.abs(net), 4)) +
+    stat('Breakevens', be) +
+    stat('Max profit', unb(mp), cls(mp)) +
+    stat('Max loss', unb(ml), cls(ml)) : '<div class="empty">Add at least one valid leg (strike greater than 0, non-zero quantity).</div>';
+  $('agg').innerHTML = legs.length ?
+    kv('Net delta', fmt(g.delta, 4)) + kv('Net gamma', fmt(g.gamma, 5)) +
+    kv('Net vega / 1 vol pt', fmt(g.vega / 100, 4)) + kv('Net theta / day', fmt(g.theta / 365, 4)) +
+    kv('Net rho / 1 rate pt', fmt(g.rho / 100, 4)) : '';
+  state._analysis = a;
+}
+function stat(h, v, c) { return '<div class="stat"><h3>' + h + '</h3><div class="v ' + (c || '') + '">' + v + '</div></div>'; }
+function kv(a, b) { return '<div class="kv"><span>' + a + '</span><span>' + b + '</span></div>'; }
+
+/* ---------- results ---------- */
+function card(title, rows, hero) {
+  let h = '<div class="card' + (hero ? ' hero' : '') + '"><h3>' + title + '</h3><div class="v">' + rows[0][1] + '</div>';
+  if (rows[0][0]) h += '<div class="alt"><span class="lab">' + rows[0][0] + '</span></div>';
+  for (let i = 1; i < rows.length; i++) h += '<div class="alt"><span class="lab">' + rows[i][0] + '</span><b>' + rows[i][1] + '</b></div>';
+  return h + '</div>';
+}
+function renderResults() {
+  const { S, K, T, r, sigma, q, kind } = state;
+  const b = GS.bsm(S, K, T, r, sigma, q, kind);
+  const call = GS.bsm(S, K, T, r, sigma, q, 'call'), put = GS.bsm(S, K, T, r, sigma, q, 'put');
+  const intr = Math.max((kind === 'call' ? 1 : -1) * (S - K), 0);
+  $('res-sub').textContent = (kind === 'call' ? 'Call' : 'Put') + ', ' + (T * 365).toFixed(1) + ' days to expiry';
+  $('cards').innerHTML =
+    card(kind + ' price', [['intrinsic ' + fmt(intr, 4) + ' / time value ' + fmt(b.price - intr, 4), fmt(b.price, 4)]], true) +
+    card('Delta', [['dV/dS', fmt(b.delta, 4)]]) +
+    card('Gamma', [['per $1 move in S', fmt(b.gamma, 5)]]) +
+    card('Vega', [['per 1 vol pt (1%)', fmt(b.vega / 100, 4)], ['per 1.00 vol', fmt(b.vega, 4)]]) +
+    card('Theta', [['per day', fmt(b.theta / 365, 4)], ['per year', fmt(b.theta, 4)]]) +
+    card('Rho', [['per 1 rate pt (1%)', fmt(b.rho / 100, 4)], ['per 1.00 rate', fmt(b.rho, 4)]]) +
+    card('Vanna', [['dDelta/dvol, per 1.00 vol', fmt(b.vanna, 4)]]) +
+    card('Volga', [['dVega/dvol, per 1.00 vol', fmt(b.volga, 4)]]);
+  // for cards with a single row, the lab line renders under the value; fine.
+  const lhs = call.price - put.price;
+  const rhs = S * Math.exp(-q * T) - K * Math.exp(-r * T);
+  const diff = lhs - rhs;
+  const ok = Math.abs(diff) <= 1e-9 * Math.max(1, S, K);
+  $('diag').innerHTML =
+    kv('d1', fmt(b.d1, 6)) + kv('d2', fmt(b.d2, 6)) +
+    kv('Call price C', fmt(call.price, 6)) + kv('Put price P', fmt(put.price, 6)) +
+    kv('C - P', fmt(lhs, 6)) + kv('S e^(-qT) - K e^(-rT)', fmt(rhs, 6)) +
+    kv('Put-call parity', '<span class="badge ' + (ok ? 'ok' : 'bad') + '">' + (ok ? 'HOLDS' : 'VIOLATED') + '</span> <span style="color:var(--faint)">|diff| ' + Math.abs(diff).toExponential(1) + '</span>');
+  $('mini').innerHTML = '<span><b>' + fmt(b.price, 4) + '</b> ' + kind + '</span><span>delta ' + fmt(b.delta, 3) + '</span><span>theta/d ' + fmt(b.theta / 365, 3) + '</span>';
+}
+
+/* ---------- implied vol ---------- */
+let lastIV = null;
+function renderIV() {
+  const out = $('iv-out');
+  const raw = $('iv-price').value.trim();
+  lastIV = null;
+  if (raw === '') { out.innerHTML = '<div class="meta">Enter an observed option price to solve for its implied volatility.</div>'; return; }
+  const res = GS.impliedVol(parseFloat(raw), state.S, state.K, state.T, state.r, state.q, state.kind);
+  if (!res.ok) {
+    out.innerHTML = '<div class="err" role="alert">' + res.error + '</div>' +
+      (res.bounds ? '<div class="meta">No-arbitrage bounds for this ' + state.kind + ': [' + fmt(res.bounds.lo, 4) + ', ' + fmt(res.bounds.hi, 4) + ']</div>' : '');
+    return;
+  }
+  lastIV = res.iv;
+  out.innerHTML = '<div class="big">' + fmt(res.iv * 100, 4) + '%</div>' +
+    '<div class="meta">sigma = ' + fmt(res.iv, 6) + ' &middot; ' + res.iterations + ' iterations &middot; ' + res.method + '</div>' +
+    '<div class="meta">No-arbitrage bounds: [' + fmt(res.bounds.lo, 4) + ', ' + fmt(res.bounds.hi, 4) + ']</div>';
+}
+
+/* ===================================================================
+   Charts (hand-rolled canvas plotting helper)
+   =================================================================== */
+function niceNum(x, round) {
+  const e = Math.floor(Math.log10(x)), f = x / Math.pow(10, e);
+  let nf;
+  if (round) nf = f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10;
+  else nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+  return nf * Math.pow(10, e);
+}
+function niceScale(min, max, n) {
+  const range = niceNum(max - min, false);
+  const step = niceNum(range / (n - 1), true);
+  return { step: step, min: Math.floor(min / step + 1e-9) * step, max: Math.ceil(max / step - 1e-9) * step };
+}
+function decimals(step) { return Math.max(0, Math.min(8, Math.ceil(-Math.log10(step) - 1e-9))); }
+function themeColors() {
+  const cs = getComputedStyle(document.documentElement);
+  const g = n => cs.getPropertyValue(n).trim();
+  return {
+    text: g('--text'), muted: g('--muted'), grid: g('--grid'), axis: g('--axis'), accent: g('--accent'),
+    pos: g('--pos'), neg: g('--neg'), posFill: g('--pos-fill'), negFill: g('--neg-fill'),
+    s1: g('--s1'), s2: g('--s2'), s3: g('--s3'), tip: g('--tip-bg'), line: g('--line'),
+    mono: g('--mono'), sans: g('--sans')
+  };
+}
+function interp(xs, ys, x) {
+  const n = xs.length;
+  if (x <= xs[0]) return ys[0];
+  if (x >= xs[n - 1]) return ys[n - 1];
+  let lo = 0, hi = n - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (xs[m] <= x) lo = m; else hi = m; }
+  const t = (x - xs[lo]) / (xs[hi] - xs[lo] || 1);
+  return ys[lo] + t * (ys[hi] - ys[lo]);
+}
+
+/*
+ cfg: { xs, series:[{ys,label,color,width,dash}], xMin,xMax, includeZero, shadeIdx,
+        vlines:[{x,label,color,dash}], dots:[{x,y,label,color}], xFmt,yFmt, xTitle, defaultX }
+*/
+function drawChart(canvas) {
+  const cfg = canvas.__cfg;
+  if (!cfg) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  if (!W || !H) return;
+  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const C = themeColors();
+  const small = W < 520;
+  const m = { l: small ? 46 : 58, r: small ? 12 : 18, t: 12, b: 40 };
+  const pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const xMin = cfg.xMin, xMax = cfg.xMax;
+
+  let ymin = Infinity, ymax = -Infinity;
+  cfg.series.forEach(s => s.ys.forEach(y => { if (isFinite(y)) { if (y < ymin) ymin = y; if (y > ymax) ymax = y; } }));
+  if (cfg.includeZero) { ymin = Math.min(ymin, 0); ymax = Math.max(ymax, 0); }
+  if (!isFinite(ymin)) { ymin = -1; ymax = 1; }
+  if (ymax - ymin < 1e-12) { ymax += 1; ymin -= 1; }
+  const pad = (ymax - ymin) * 0.06; ymin -= pad; ymax += pad;
+  const ys = niceScale(ymin, ymax, 6);
+  ymin = ys.min; ymax = ys.max;
+  const X = x => m.l + (x - xMin) / (xMax - xMin) * pw;
+  const Y = y => m.t + (1 - (y - ymin) / (ymax - ymin)) * ph;
+  canvas.__layout = { l: m.l, t: m.t, pw: pw, ph: ph, X: X, Y: Y };
+
+  ctx.font = '11px ' + C.mono;
+  ctx.textBaseline = 'middle';
+  // y grid + labels
+  const ydec = decimals(ys.step);
+  ctx.lineWidth = 1;
+  for (let i = 0; ; i++) {
+    let v = ys.min + i * ys.step;
+    if (v > ymax + ys.step * 1e-6) break;
+    if (Math.abs(v) < ys.step * 1e-9) v = 0;
+    const py = Math.round(Y(v)) + 0.5;
+    ctx.strokeStyle = C.grid; ctx.beginPath(); ctx.moveTo(m.l, py); ctx.lineTo(m.l + pw, py); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.textAlign = 'right';
+    ctx.fillText(v.toFixed(ydec), m.l - 6, py);
+  }
+  // x grid + labels
+  const xstep = niceNum((xMax - xMin) / (small ? 4 : 7), true);
+  const xdec = decimals(xstep);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let v = Math.ceil(xMin / xstep - 1e-9) * xstep; v <= xMax + xstep * 1e-6; v += xstep) {
+    const px = Math.round(X(v)) + 0.5;
+    ctx.strokeStyle = C.grid; ctx.beginPath(); ctx.moveTo(px, m.t); ctx.lineTo(px, m.t + ph); ctx.stroke();
+    ctx.fillStyle = C.muted; ctx.fillText(v.toFixed(xdec), px, m.t + ph + 6);
+  }
+  if (cfg.xTitle) { ctx.fillStyle = C.muted; ctx.textAlign = 'center'; ctx.font = '11px ' + C.sans; ctx.fillText(cfg.xTitle, m.l + pw / 2, H - 16); ctx.font = '11px ' + C.mono; }
+  // axes frame
+  ctx.strokeStyle = C.axis; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(m.l + 0.5, m.t); ctx.lineTo(m.l + 0.5, m.t + ph + 0.5); ctx.lineTo(m.l + pw, m.t + ph + 0.5); ctx.stroke();
+  // zero line
+  if (ymin < 0 && ymax > 0) {
+    const zy = Math.round(Y(0)) + 0.5;
+    ctx.strokeStyle = C.axis; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(m.l, zy); ctx.lineTo(m.l + pw, zy); ctx.stroke();
+  }
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(m.l, m.t, pw, ph); ctx.clip();
+  // shading
+  if (cfg.shadeIdx != null) {
+    const s = cfg.series[cfg.shadeIdx];
+    const zy = Math.max(m.t, Math.min(m.t + ph, Y(0)));
+    const path = () => {
+      ctx.beginPath(); ctx.moveTo(X(cfg.xs[0]), zy);
+      for (let i = 0; i < cfg.xs.length; i++) ctx.lineTo(X(cfg.xs[i]), Y(s.ys[i]));
+      ctx.lineTo(X(cfg.xs[cfg.xs.length - 1]), zy); ctx.closePath();
+    };
+    ctx.save(); ctx.beginPath(); ctx.rect(m.l, m.t, pw, zy - m.t); ctx.clip(); path(); ctx.fillStyle = C.posFill; ctx.fill(); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(m.l, zy, pw, m.t + ph - zy); ctx.clip(); path(); ctx.fillStyle = C.negFill; ctx.fill(); ctx.restore();
+  }
+  // vlines
+  (cfg.vlines || []).forEach(v => {
+    if (v.x < xMin || v.x > xMax) return;
+    const px = Math.round(X(v.x)) + 0.5;
+    ctx.strokeStyle = v.color ? C[v.color] : C.muted; ctx.lineWidth = 1; ctx.setLineDash(v.dash || [3, 4]);
+    ctx.beginPath(); ctx.moveTo(px, m.t); ctx.lineTo(px, m.t + ph); ctx.stroke(); ctx.setLineDash([]);
+  });
+  // series
+  cfg.series.forEach(s => {
+    ctx.strokeStyle = C[s.color] || s.color; ctx.lineWidth = s.width || 2; ctx.lineJoin = 'round'; ctx.setLineDash(s.dash || []);
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < cfg.xs.length; i++) {
+      const y = s.ys[i];
+      if (!isFinite(y)) { started = false; continue; }
+      if (!started) { ctx.moveTo(X(cfg.xs[i]), Y(y)); started = true; } else ctx.lineTo(X(cfg.xs[i]), Y(y));
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+  });
+  ctx.restore();
+  // vline labels
+  ctx.font = '10px ' + C.mono; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+  (cfg.vlines || []).forEach(v => {
+    if (!v.label || v.x < xMin || v.x > xMax) return;
+    const px = X(v.x);
+    const w = ctx.measureText(v.label).width;
+    ctx.fillStyle = v.color ? C[v.color] : C.muted;
+    ctx.textAlign = px + w + 8 > m.l + pw ? 'right' : 'left';
+    ctx.fillText(v.label, px + (ctx.textAlign === 'left' ? 4 : -4), v.top ? m.t + 4 : m.t + ph - 14);
+  });
+  // dots
+  (cfg.dots || []).forEach(d => {
+    if (d.x < xMin || d.x > xMax) return;
+    const px = X(d.x), py = Y(d.y);
+    ctx.fillStyle = C.tip; ctx.strokeStyle = C[d.color] || C.text; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(px, py, 4, 0, 6.2832); ctx.fill(); ctx.stroke();
+  });
+  // legend
+  ctx.font = '11px ' + C.mono; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  const items = cfg.series.filter(s => s.label);
+  if (items.length) {
+    let lw = 0; items.forEach(s => { lw = Math.max(lw, ctx.measureText(s.label).width); });
+    const bx = m.l + 8, by = m.t + 8, bw = lw + 38, bh = items.length * 17 + 8;
+    ctx.fillStyle = C.tip; ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.rect(bx + 0.5, by + 0.5, bw, bh); ctx.fill(); ctx.stroke();
+    items.forEach((s, i) => {
+      const yy = by + 12 + i * 17;
+      ctx.strokeStyle = C[s.color] || s.color; ctx.lineWidth = 2; ctx.setLineDash(s.dash || []);
+      ctx.beginPath(); ctx.moveTo(bx + 8, yy); ctx.lineTo(bx + 26, yy); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = C.text; ctx.fillText(s.label, bx + 32, yy);
+    });
+  }
+  // hover crosshair + tooltip
+  const hx = canvas.__hx;
+  if (hx != null && hx >= xMin && hx <= xMax) {
+    const px = Math.round(X(hx)) + 0.5;
+    ctx.strokeStyle = C.text; ctx.globalAlpha = 0.55; ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(px, m.t); ctx.lineTo(px, m.t + ph); ctx.stroke(); ctx.globalAlpha = 1;
+    const lines = [{ t: (cfg.xName || 'x') + ' ' + (cfg.xFmt || (v => v.toFixed(2)))(hx), c: null }];
+    cfg.series.forEach(s => {
+      const y = interp(cfg.xs, s.ys, hx);
+      lines.push({ t: (s.short || s.label || '') + ' ' + (cfg.yFmt || (v => v.toFixed(2)))(y), c: C[s.color] || s.color, y: y });
+      ctx.fillStyle = C.tip; ctx.strokeStyle = C[s.color] || s.color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(px, Y(y), 3.5, 0, 6.2832); ctx.fill(); ctx.stroke();
+    });
+    ctx.font = '11px ' + C.mono;
+    let tw = 0; lines.forEach(l => { tw = Math.max(tw, ctx.measureText(l.t).width); });
+    const bw = tw + 22, bh = lines.length * 16 + 10;
+    let bx = px + 12; if (bx + bw > m.l + pw) bx = px - 12 - bw; if (bx < m.l) bx = m.l;
+    const by = m.t + 6;
+    ctx.fillStyle = C.tip; ctx.strokeStyle = C.axis; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.rect(Math.round(bx) + 0.5, by + 0.5, bw, bh); ctx.fill(); ctx.stroke();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    lines.forEach((l, i) => {
+      const yy = by + 13 + i * 16;
+      if (l.c) { ctx.fillStyle = l.c; ctx.fillRect(bx + 7, yy - 4, 8, 8); }
+      ctx.fillStyle = C.text; ctx.fillText(l.t, bx + (l.c ? 20 : 8), yy);
+    });
+  }
+}
+function setupChart(canvas) {
+  const setHover = e => {
+    const L = canvas.__layout, cfg = canvas.__cfg; if (!L || !cfg) return;
+    const rect = canvas.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const t = (px - L.l) / L.pw;
+    canvas.__hx = (t < 0 || t > 1) ? null : cfg.xMin + t * (cfg.xMax - cfg.xMin);
+    drawChart(canvas);
+  };
+  canvas.addEventListener('pointermove', setHover);
+  canvas.addEventListener('pointerdown', setHover);
+  canvas.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { canvas.__hx = null; drawChart(canvas); } });
+  canvas.addEventListener('keydown', e => {
+    const cfg = canvas.__cfg; if (!cfg) return;
+    const step = (cfg.xMax - cfg.xMin) / (e.shiftKey ? 10 : 100);
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault(); canvas.__kb = true;
+      const cur = canvas.__hx != null ? canvas.__hx : (cfg.defaultX != null ? cfg.defaultX : (cfg.xMin + cfg.xMax) / 2);
+      canvas.__hx = Math.max(cfg.xMin, Math.min(cfg.xMax, cur + (e.key === 'ArrowRight' ? step : -step)));
+      drawChart(canvas);
+    } else if (e.key === 'Escape') { canvas.__hx = null; drawChart(canvas); }
+  });
+  canvas.addEventListener('blur', () => { if (canvas.__hx != null && canvas.__kb) { canvas.__hx = null; drawChart(canvas); } });
+  if (window.ResizeObserver) new ResizeObserver(() => drawChart(canvas)).observe(canvas);
+}
+
+function buildPayoffChart() {
+  const cv = $('cv-payoff');
+  const legs = resolvedLegs();
+  const { S, T, r, sigma, q } = state;
+  if (!legs.length) { cv.__cfg = { xs: [0, 1], series: [{ ys: [0, 0], color: 'muted' }], xMin: 0, xMax: 1, includeZero: true }; drawChart(cv); return; }
+  const strikes = legs.map(l => l.strike).concat([S]);
+  const lo = Math.max(0, Math.min.apply(null, strikes) * 0.7), hi = Math.max.apply(null, strikes) * 1.3 + 1e-9;
+  const set = new Set();
+  const N = 240;
+  for (let i = 0; i <= N; i++) set.add(lo + (hi - lo) * i / N);
+  legs.forEach(l => { if (l.type !== 'stock' && l.strike > lo && l.strike < hi) set.add(l.strike); });
+  const xs = Array.from(set).sort((a, b) => a - b);
+  const days = Math.min(state.elapsed, Math.floor(T * 365));
+  const Trem = Math.max(T - days / 365, 0);
+  const exp = xs.map(x => GS.payoffAt(legs, x));
+  const now = xs.map(x => GS.valueAt(legs, x, Trem, r, sigma, q));
+  const a = state._analysis || GS.analyze(legs);
+  cv.__cfg = {
+    xs: xs, xMin: lo, xMax: hi, includeZero: true, shadeIdx: 0, defaultX: S,
+    series: [
+      { ys: exp, label: 'P&L at expiry', short: 'Expiry', color: 'text', width: 2 },
+      { ys: now, label: days ? 'P&L at +' + days + 'd (model)' : 'P&L today (model)', short: days ? '+' + days + 'd' : 'Today', color: 's1', width: 2, dash: [] }
+    ],
+    vlines: [{ x: S, label: 'S ' + fmt(S, 2), color: 'muted' }],
+    dots: a.breakevens.map(x => ({ x: x, y: 0, color: 'text' })),
+    xName: 'Spot', xFmt: v => v.toFixed(2), yFmt: v => (v >= 0 ? '+' : '') + v.toFixed(2), xTitle: 'Underlying price'
+  };
+  cv.setAttribute('aria-label', 'Payoff chart. Breakevens: ' + (a.breakevens.length ? a.breakevens.map(x => fmt(x, 2)).join(', ') : 'none') +
+    '. Max profit ' + (isFinite(a.maxProfit) ? fmt(a.maxProfit, 2) : 'unbounded') + ', max loss ' + (isFinite(a.maxLoss) ? fmt(a.maxLoss, 2) : 'unbounded') + '.');
+  drawChart(cv);
+}
+const GREEKS = {
+  delta: { name: 'Delta', f: b => b.delta, dp: 4 },
+  gamma: { name: 'Gamma', f: b => b.gamma, dp: 5 },
+  vega: { name: 'Vega (per 1 vol pt)', f: b => b.vega / 100, dp: 4 },
+  theta: { name: 'Theta (per day)', f: b => b.theta / 365, dp: 4 }
+};
+function buildGreekChart() {
+  const cv = $('cv-greek');
+  const { S, K, T, r, sigma, q, kind } = state;
+  const G = GREEKS[state.greek];
+  const lo = Math.max(0.01, Math.min(S, K) * 0.6), hi = Math.max(S, K) * 1.4;
+  const base = T > 0 ? T : 0.25;
+  const times = [base, base / 2, base / 10].map(t => Math.max(t, 1 / 365));
+  const xs = []; const N = 200;
+  for (let i = 0; i <= N; i++) xs.push(lo + (hi - lo) * i / N);
+  const cols = ['s1', 's2', 's3'];
+  const fmtT = t => (t >= 0.1 ? t.toFixed(2) : t.toFixed(3)) + 'y';
+  cv.__cfg = {
+    xs: xs, xMin: lo, xMax: hi, includeZero: true, defaultX: S,
+    series: times.map((t, i) => ({
+      ys: xs.map(x => G.f(GS.bsm(x, K, t, r, sigma, q, kind))), label: 'T = ' + fmtT(t), short: 'T=' + fmtT(t), color: cols[i], width: 2
+    })),
+    vlines: [{ x: S, label: 'S', color: 'muted' }, { x: K, label: 'K', color: 'muted', dash: [1, 4], top: true }],
+    xName: 'Spot', xFmt: v => v.toFixed(2), yFmt: v => v.toFixed(G.dp), xTitle: 'Spot price'
+  };
+  $('greek-sub').textContent = (kind === 'call' ? 'Call ' : 'Put ') + G.name.toLowerCase();
+  $('greek-note').textContent = 'Curves for T = ' + times.map(fmtT).join(', ') + (T > 0 ? '' : ' (illustrative: current T is 0)') + '. sigma, r, q and K as set in the inputs.';
+  cv.setAttribute('aria-label', G.name + ' versus spot for three expiries');
+  drawChart(cv);
+}
+let chartRaf = 0;
+function scheduleCharts() {
+  if (chartRaf) return;
+  chartRaf = requestAnimationFrame(() => { chartRaf = 0; buildPayoffChart(); buildGreekChart(); });
+}
+
+/* ---------- wiring ---------- */
+function updateElapsedRange() {
+  const max = Math.max(0, Math.floor(state.T * 365));
+  const el = $('elapsed');
+  el.max = max; el.disabled = max === 0;
+  if (state.elapsed > max) state.elapsed = max;
+  el.value = state.elapsed;
+  $('elapsed-out').textContent = state.elapsed + (state.elapsed === 1 ? ' day' : ' days');
+}
+function onInputsChanged() {
+  updateHints();
+  updateElapsedRange();
+  renderResults();
+  renderStrategy();
+  renderIV();
+  scheduleCharts();
+}
+
+function init() {
+  buildFields();
+  document.querySelectorAll('input[name=kind]').forEach(r => r.addEventListener('change', () => {
+    if (!r.checked) return;
+    state.kind = r.value;
+    if (state.preset === 'single') setPreset('single');
+    onInputsChanged();
+  }));
+  document.querySelectorAll('input[name=greek]').forEach(r => r.addEventListener('change', () => { if (r.checked) { state.greek = r.value; scheduleCharts(); } }));
+  $('preset').addEventListener('change', e => { if (e.target.value !== 'custom') { setPreset(e.target.value); } });
+  $('reset-legs').addEventListener('click', () => setPreset(state.preset === 'custom' ? 'single' : state.preset));
+  $('add-leg').addEventListener('click', () => {
+    state.legs.push({ id: uid++, type: state.kind, strike: state.K, qty: 1, prem: null });
+    markCustom(); renderLegs();
+    const rows = $('legs').querySelectorAll('.leg'); const last = rows[rows.length - 1]; if (last) last.querySelector('select').focus();
+  });
+  $('elapsed').addEventListener('input', e => {
+    state.elapsed = parseInt(e.target.value, 10) || 0;
+    $('elapsed-out').textContent = state.elapsed + (state.elapsed === 1 ? ' day' : ' days');
+    scheduleCharts();
+  });
+  $('iv-price').addEventListener('input', renderIV);
+  $('iv-fill').addEventListener('click', () => {
+    const p = GS.bsm(state.S, state.K, state.T, state.r, state.sigma, state.q, state.kind).price;
+    $('iv-price').value = p.toFixed(4); renderIV();
+  });
+  $('iv-apply').addEventListener('click', () => {
+    if (lastIV == null) { $('iv-price').focus(); return; }
+    state.sigma = lastIV; syncFields(); onInputsChanged();
+  });
+  setupChart($('cv-payoff'));
+  setupChart($('cv-greek'));
+  window.addEventListener('resize', scheduleCharts);
+  if (window.matchMedia) {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const redraw = () => { drawChart($('cv-payoff')); drawChart($('cv-greek')); };
+    if (mq.addEventListener) mq.addEventListener('change', redraw); else if (mq.addListener) mq.addListener(redraw);
+  }
+  setPreset('single');
+  onInputsChanged();
+}
+init();
+})();
+</script>
+</body>
+</html>
